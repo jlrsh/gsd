@@ -1,0 +1,1 @@
+"""GSD assignment checklist application."""

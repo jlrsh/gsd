@@ -3,10 +3,9 @@
 from datetime import datetime
 
 from bs4 import BeautifulSoup
-
 from conftest import gsd
-from plugins import gradescope
 
+from gsd.plugins import gradescope
 
 DASHBOARD = """
 <div class="courseList">
@@ -41,7 +40,8 @@ def test_parser_uses_current_term_and_real_due_date():
     courses = gradescope.parse_courses(BeautifulSoup(DASHBOARD, "html.parser"))
     assert [course["id"] for course in courses] == ["100001"]
     rows = gradescope.parse_assignments(
-        BeautifulSoup(ASSIGNMENTS, "html.parser"), courses[0])
+        BeautifulSoup(ASSIGNMENTS, "html.parser"), courses[0]
+    )
     assert rows[0]["due_iso"] == "2026-09-07T23:59:00-04:00"
     assert rows[0]["key"] == "a55"
     assert rows[0]["status"] == "18 / 20"
@@ -49,9 +49,14 @@ def test_parser_uses_current_term_and_real_due_date():
 
 
 def test_direct_adapter_has_stable_identity_and_no_ics():
-    row = {"course_id": "100001", "key": "a55", "course": "CS 25100",
-           "title": "Homework 1", "due_iso": "2026-09-07T23:59:00-04:00",
-           "url": "https://www.gradescope.com/x"}
+    row = {
+        "course_id": "100001",
+        "key": "a55",
+        "course": "CS 25100",
+        "title": "Homework 1",
+        "due_iso": "2026-09-07T23:59:00-04:00",
+        "url": "https://www.gradescope.com/x",
+    }
     first = gsd.gradescope_items([row])[0]
     second = gsd.gradescope_items([dict(row)])[0]
     assert first.key == second.key
@@ -82,15 +87,17 @@ enabled = false
 enabled = true
 email = "student@example.edu"
 """)
-    monkeypatch.setattr(gsd, "CONFIG_DIR", tmp_path)
-    monkeypatch.setattr(gsd, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(gsd, "CACHE_DIR", tmp_path / "cache")
-    monkeypatch.setattr(gsd, "CONFIG_PATH", config)
+    monkeypatch.setattr(gsd.config, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(gsd.config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(gsd.config, "CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(gsd.config, "CONFIG_PATH", config)
     feeds, settings = gsd.load_config()
     assert len(feeds) == 1 and not feeds[0].enabled
     assert settings["gradescope"] == {
-        "enabled": True, "email": "student@example.edu",
-        "all_terms": False, "skip_submitted": False,
+        "enabled": True,
+        "email": "student@example.edu",
+        "all_terms": False,
+        "skip_submitted": False,
     }
 
 
@@ -106,10 +113,10 @@ name = "Canvas"
 enabled = false # toggle this
 email = "student@example.edu"
 """)
-    monkeypatch.setattr(gsd, "CONFIG_DIR", tmp_path)
-    monkeypatch.setattr(gsd, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(gsd, "CACHE_DIR", tmp_path / "cache")
-    monkeypatch.setattr(gsd, "CONFIG_PATH", config)
+    monkeypatch.setattr(gsd.config, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(gsd.config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(gsd.config, "CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(gsd.config, "CONFIG_PATH", config)
     gsd.set_source_enabled("feed", "https://calendar.test/a.ics", False)
     gsd.set_source_enabled("gradescope", gsd.GRADESCOPE_SOURCE, True)
     text = config.read_text()
@@ -130,8 +137,9 @@ def test_gradescope_sync_state_is_a_separate_right_status():
 
     settings = dict(gsd.DEFAULTS)
     settings["gradescope"] = {"enabled": True, "email": "student@example.edu"}
-    app = gsd.App(Screen(), [], settings,
-                  {"completed": {}, "checked": [], "manual": []})
+    app = gsd.App(
+        Screen(), [], settings, {"completed": {}, "checked": [], "manual": []}
+    )
     status = app.status[gsd.GRADESCOPE_SOURCE]
     status.pending = False
     status.cached_at = __import__("time").time()
@@ -140,17 +148,19 @@ def test_gradescope_sync_state_is_a_separate_right_status():
     assert right == "Gradescope synced just now"
 
 
-def test_timezone_selection_patches_settings_without_losing_comments(tmp_path, monkeypatch):
+def test_timezone_selection_patches_settings_without_losing_comments(
+    tmp_path, monkeypatch
+):
     config = tmp_path / "config.toml"
     config.write_text("""# keep this
 [settings]
 horizon_days = 42
 timezone = "auto" # local computer
 """)
-    monkeypatch.setattr(gsd, "CONFIG_DIR", tmp_path)
-    monkeypatch.setattr(gsd, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(gsd, "CACHE_DIR", tmp_path / "cache")
-    monkeypatch.setattr(gsd, "CONFIG_PATH", config)
+    monkeypatch.setattr(gsd.config, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(gsd.config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(gsd.config, "CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(gsd.config, "CONFIG_PATH", config)
     previous = gsd.LOCAL_TIMEZONE
     try:
         resolved = gsd.configure_timezone("America/Indiana/Indianapolis")

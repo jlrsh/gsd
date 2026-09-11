@@ -1,16 +1,48 @@
-import importlib.util
-import sys
-from pathlib import Path
+"""Shared access to GSD's package modules.
 
-ROOT = Path(__file__).resolve().parent.parent
+The proxy keeps the older tests concise while resolving attributes dynamically
+from their owning module (important for the selectable local timezone).
+"""
+
+from gsd import (
+    cli,
+    config,
+    events,
+    ical,
+    models,
+    paths,
+    sources,
+    state,
+    text,
+    timezones,
+    ui,
+)
 
 
-def _load():
-    spec = importlib.util.spec_from_file_location("gsd", ROOT / "gsd.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["gsd"] = module          # dataclasses needs the module registered
-    spec.loader.exec_module(module)
-    return module
+class ModuleProxy:
+    modules = (
+        timezones,
+        paths,
+        models,
+        config,
+        ical,
+        sources,
+        state,
+        events,
+        text,
+        ui,
+        cli,
+    )
+
+    def __init__(self):
+        for module in self.modules:
+            setattr(self, module.__name__.rsplit(".", 1)[-1], module)
+
+    def __getattr__(self, name):
+        for module in self.modules:
+            if hasattr(module, name):
+                return getattr(module, name)
+        raise AttributeError(name)
 
 
-gsd = _load()
+gsd = ModuleProxy()

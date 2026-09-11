@@ -50,8 +50,11 @@ class BotCheckError(GradescopeError):
 
 
 _BOT_MARKERS = (
-    "just a moment", "cf-browser-verification", "cf_chl_opt",
-    "attention required! | cloudflare", "enable javascript and cookies to continue",
+    "just a moment",
+    "cf-browser-verification",
+    "cf_chl_opt",
+    "attention required! | cloudflare",
+    "enable javascript and cookies to continue",
     "checking if the site connection is secure",
 )
 _ISO_RE = re.compile(
@@ -62,7 +65,8 @@ _ISO_RE = re.compile(
 def _looks_like_bot_check(html: str, headers=None) -> bool:
     lowered = (html or "")[:4000].lower()
     return any(marker in lowered for marker in _BOT_MARKERS) or bool(
-        headers is not None and headers.get("cf-mitigated"))
+        headers is not None and headers.get("cf-mitigated")
+    )
 
 
 def password_for(email: str) -> str | None:
@@ -73,7 +77,8 @@ def password_for(email: str) -> str | None:
         return None
     proc = subprocess.run(
         ["security", "find-generic-password", "-s", SERVICE, "-a", email, "-w"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if proc.returncode == 44:
         return None
@@ -86,9 +91,23 @@ def store_password(email: str, password: str) -> None:
     if platform.system() != "Darwin":
         raise AuthError(f"No macOS Keychain; set {PASSWORD_ENV} instead")
     proc = subprocess.run(
-        ["security", "add-generic-password", "-U", "-s", SERVICE, "-a", email,
-         "-l", f"gsd Gradescope ({email})", "-D", "application password", "-w", password],
-        capture_output=True, text=True,
+        [
+            "security",
+            "add-generic-password",
+            "-U",
+            "-s",
+            SERVICE,
+            "-a",
+            email,
+            "-l",
+            f"gsd Gradescope ({email})",
+            "-D",
+            "application password",
+            "-w",
+            password,
+        ],
+        capture_output=True,
+        text=True,
     )
     if proc.returncode != 0:
         raise AuthError(proc.stderr.strip() or "could not write the macOS Keychain")
@@ -99,7 +118,8 @@ def delete_password(email: str) -> bool:
         return False
     proc = subprocess.run(
         ["security", "delete-generic-password", "-s", SERVICE, "-a", email],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     return proc.returncode == 0
 
@@ -115,10 +135,14 @@ class Session:
             except (http.cookiejar.LoadError, OSError):
                 pass
         self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(self.jar))
+            urllib.request.HTTPCookieProcessor(self.jar)
+        )
         self.opener.addheaders = [
             ("User-Agent", UA),
-            ("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
+            (
+                "Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            ),
             ("Accept-Language", "en-US,en;q=0.9"),
         ]
 
@@ -141,13 +165,20 @@ class Session:
                 with self.opener.open(request, timeout=self.timeout) as res:
                     body = res.read().decode("utf-8", errors="replace")
                     if _looks_like_bot_check(body, res.headers):
-                        raise BotCheckError("Gradescope presented a bot check; import browser cookies")
+                        raise BotCheckError(
+                            "Gradescope presented a bot check; import browser cookies"
+                        )
                     return res.geturl(), body
             except urllib.error.HTTPError as exc:
                 body = exc.read().decode("utf-8", errors="replace")
                 if _looks_like_bot_check(body, exc.headers):
-                    raise BotCheckError("Gradescope presented a bot check; import browser cookies") from exc
-                if exc.code in (408, 429, 500, 502, 503, 504) and attempt + 1 < attempts:
+                    raise BotCheckError(
+                        "Gradescope presented a bot check; import browser cookies"
+                    ) from exc
+                if (
+                    exc.code in (408, 429, 500, 502, 503, 504)
+                    and attempt + 1 < attempts
+                ):
                     time.sleep(delay + random.uniform(0, delay / 2))
                     delay *= 2
                     continue
@@ -155,7 +186,9 @@ class Session:
             except urllib.error.URLError as exc:
                 reason = getattr(exc, "reason", exc)
                 if isinstance(reason, ssl.SSLCertVerificationError):
-                    raise GradescopeError("TLS certificate verification failed") from exc
+                    raise GradescopeError(
+                        "TLS certificate verification failed"
+                    ) from exc
                 if attempt + 1 < attempts:
                     time.sleep(delay + random.uniform(0, delay / 2))
                     delay *= 2
@@ -169,28 +202,41 @@ class Session:
     def post(self, url: str, fields: dict) -> tuple[str, str]:
         # fields contains the password: never include it in errors or logging.
         request = urllib.request.Request(
-            url, data=urllib.parse.urlencode(fields).encode(),
-            headers={"Content-Type": "application/x-www-form-urlencoded", "Referer": url},
+            url,
+            data=urllib.parse.urlencode(fields).encode(),
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Referer": url,
+            },
         )
         return self._open(request)
 
     @staticmethod
     def _is_login(url: str, html: str) -> bool:
-        return ('name="session[email]"' in html or
-                urllib.parse.urlparse(url).path.rstrip("/") == "/login")
+        return (
+            'name="session[email]"' in html
+            or urllib.parse.urlparse(url).path.rstrip("/") == "/login"
+        )
 
     def login(self, email: str, password: str) -> None:
         _, html = self.get(LOGIN_URL)
         token = BeautifulSoup(html, "html.parser").select_one(
-            'input[name="authenticity_token"]')
+            'input[name="authenticity_token"]'
+        )
         if token is None:
             raise AuthError("Gradescope login form was not found")
-        url, html = self.post(LOGIN_URL, {
-            "utf8": "✓", "authenticity_token": token.get("value", ""),
-            "session[email]": email, "session[password]": password,
-            "session[remember_me]": "1", "commit": "Log In",
-            "session[remember_me_sso]": "0",
-        })
+        url, html = self.post(
+            LOGIN_URL,
+            {
+                "utf8": "✓",
+                "authenticity_token": token.get("value", ""),
+                "session[email]": email,
+                "session[password]": password,
+                "session[remember_me]": "1",
+                "commit": "Log In",
+                "session[remember_me_sso]": "0",
+            },
+        )
         if self._is_login(url, html):
             raise AuthError("Gradescope rejected that email/password")
         self.save()
@@ -234,8 +280,10 @@ def normalize_datetime(raw) -> str | None:
             if offset != "Z" and ":" not in offset:
                 offset = offset[:3] + ":" + offset[3:]
             return base + offset
-    for candidate in (original.replace("Z", "+00:00"),
-                      original.replace(" ", "T", 1).replace("Z", "+00:00")):
+    for candidate in (
+        original.replace("Z", "+00:00"),
+        original.replace(" ", "T", 1).replace("Z", "+00:00"),
+    ):
         try:
             return datetime.fromisoformat(candidate).isoformat()
         except ValueError:
@@ -264,19 +312,37 @@ def parse_courses(doc, all_terms: bool = False) -> list[dict]:
             seen.add(cid)
             short = _text(box.select_one(".courseBox--shortname"))
             full = _text(box.select_one(".courseBox--name"))
-            courses.append({"id": cid, "name": short or full or f"Course {cid}",
-                            "full_name": full or short, "url": f"{GS}/courses/{cid}"})
+            courses.append(
+                {
+                    "id": cid,
+                    "name": short or full or f"Course {cid}",
+                    "full_name": full or short,
+                    "url": f"{GS}/courses/{cid}",
+                }
+            )
     return courses
 
 
 def _due(row) -> str | None:
     times = row.select("time[datetime]")
-    candidates = [t for t in times if not any(
-        marker in f"{t.get('aria-label') or ''} {' '.join(t.get('class') or [])}".lower()
-        for marker in ("released", "releasedate", "late due"))]
-    picked = next((t for t in candidates if "due" in
-                   f"{t.get('aria-label') or ''} {' '.join(t.get('class') or [])}".lower()),
-                  candidates[0] if candidates else (times[-1] if times else None))
+    candidates = [
+        t
+        for t in times
+        if not any(
+            marker
+            in f"{t.get('aria-label') or ''} {' '.join(t.get('class') or [])}".lower()
+            for marker in ("released", "releasedate", "late due")
+        )
+    ]
+    picked = next(
+        (
+            t
+            for t in candidates
+            if "due"
+            in f"{t.get('aria-label') or ''} {' '.join(t.get('class') or [])}".lower()
+        ),
+        candidates[0] if candidates else (times[-1] if times else None),
+    )
     return normalize_datetime(picked.get("datetime")) if picked else None
 
 
@@ -291,7 +357,9 @@ def parse_assignments(doc, course: dict) -> list[dict]:
         cells = row.select("th, td")
         first = cells[0]
         link = first.select_one('a[href*="/assignments/"]')
-        button = first.select_one("button[data-assignment-id]") or first.select_one("button")
+        button = first.select_one("button[data-assignment-id]") or first.select_one(
+            "button"
+        )
         title, due = _text(link or button or first), _due(row)
         if not title or not due:
             continue
@@ -304,12 +372,19 @@ def parse_assignments(doc, course: dict) -> list[dict]:
         while key in used:
             key, suffix = f"{base}#{suffix}", suffix + 1
         used.add(key)
-        out.append({
-            "key": key, "title": title, "due_iso": due,
-            "status": _text(cells[1]) if len(cells) > 1 else "",
-            "course": course["name"], "course_id": course["id"],
-            "url": f"{GS}/courses/{course['id']}/assignments/{aid}" if aid else course["url"],
-        })
+        out.append(
+            {
+                "key": key,
+                "title": title,
+                "due_iso": due,
+                "status": _text(cells[1]) if len(cells) > 1 else "",
+                "course": course["name"],
+                "course_id": course["id"],
+                "url": f"{GS}/courses/{course['id']}/assignments/{aid}"
+                if aid
+                else course["url"],
+            }
+        )
     return out
 
 
@@ -317,7 +392,9 @@ def _submitted(status: str) -> bool:
     return bool(re.search(r"submitted|graded|\d+\s*/\s*\d+", status or "", re.I))
 
 
-def fetch(config: dict, cookie_path: Path, timeout: int, horizon_days: int) -> list[dict]:
+def fetch(
+    config: dict, cookie_path: Path, timeout: int, horizon_days: int
+) -> list[dict]:
     """Return a complete, healthy scrape or raise so gsd keeps its old cache."""
     email = str(config.get("email") or "").strip()
     session = Session(cookie_path, timeout=max(10, timeout))
@@ -327,6 +404,7 @@ def fetch(config: dict, cookie_path: Path, timeout: int, horizon_days: int) -> l
         raise GradescopeError("no courses found on the Gradescope dashboard")
 
     errors = []
+
     def one(course):
         try:
             return parse_assignments(session.doc(course["url"]), course)
@@ -351,7 +429,9 @@ def fetch(config: dict, cookie_path: Path, timeout: int, horizon_days: int) -> l
             continue
         if due.tzinfo is None:
             due = due.replace(tzinfo=timezone.utc)
-        if floor <= due <= ceiling and not (config.get("skip_submitted") and _submitted(item["status"])):
+        if floor <= due <= ceiling and not (
+            config.get("skip_submitted") and _submitted(item["status"])
+        ):
             kept.append(item)
     return sorted(kept, key=lambda item: item["due_iso"])
 
