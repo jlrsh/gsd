@@ -27,22 +27,35 @@ published.
  6 open · 1 overdue · updated 2m ago             Gradescope synced 4m ago
 ```
 
-## Running it
+## Install
 
-Python 3.11+. `uv run` installs the declared Beautiful Soup dependency used by
-the bundled Gradescope plugin automatically.
+Python 3.11+. Install it as a standalone tool, which puts a `gsd` command on
+your `PATH` in its own isolated environment:
 
 ```sh
-uv run gsd.py
+uv tool install git+https://github.com/jlrsh/gsd
 ```
 
-For direct Python invocation, install `beautifulsoup4` first and run
-`python3 gsd.py`.
+`pipx install git+https://github.com/jlrsh/gsd` does the same thing. Plain pip
+works too, if you would rather it land in the current environment:
+
+```sh
+pip install git+https://github.com/jlrsh/gsd
+```
+
+To upgrade later, `uv tool upgrade gsd` (or `pipx upgrade gsd`). For a checkout
+you are editing, `uv tool install --editable .` from the project root.
+
+## Running it
+
+```sh
+gsd
+```
 
 Add a feed (find the "Calendar Feed" / "Subscribe" URL in your LMS):
 
 ```sh
-uv run gsd.py --add-feed "https://…/user_abc123.ics" --name Canvas
+gsd --add-feed "https://…/user_abc123.ics" --name Canvas
 ```
 
 Local `.ics` paths work too, and `webcal://` URLs are rewritten automatically.
@@ -50,7 +63,7 @@ Local `.ics` paths work too, and `webcal://` URLs are rewritten automatically.
 Enable Gradescope and save its password in the macOS Login Keychain:
 
 ```sh
-uv run gsd.py --gradescope-login you@example.edu
+gsd --gradescope-login you@example.edu
 ```
 
 The email goes in GSD's config; the password does not. GSD tries its private
@@ -60,7 +73,7 @@ For SSO, MFA, or bot-check accounts, export browser cookies in Netscape format
 and run:
 
 ```sh
-uv run gsd.py --gradescope-import-cookies ~/Downloads/cookies.txt
+gsd --gradescope-import-cookies ~/Downloads/cookies.txt
 ```
 
 ## Keys
@@ -103,7 +116,7 @@ Press `c` in the TUI for the source manager; `space` toggles the selected
 plugin or calendar feed. It patches only that source's `enabled` value, leaving
 comments and other hand-edited settings intact. Press `t` to select an IANA
 timezone or return to automatic system detection. Press `e` there, or run
-`uv run gsd.py --edit-config`, to open the complete config in `$VISUAL` or
+`gsd --edit-config`, to open the complete config in `$VISUAL` or
 `$EDITOR`.
 
 Gradescope follows the same last-good-cache rule. A failed login, bot check,
@@ -134,19 +147,35 @@ timezone = "auto"      # or "America/Indiana/Indianapolis"
 ## Other invocations
 
 ```sh
-uv run gsd.py --list       # plain text, also used automatically when piped
-uv run gsd.py --no-fetch   # cached feeds only, never touch the network
-uv run gsd.py --edit-config
-uv run gsd.py --timezone America/Indiana/Indianapolis
-uv run gsd.py --timezone auto
-uv run gsd.py --gradescope-logout
+gsd --list       # plain text, also used automatically when piped
+gsd --no-fetch   # cached feeds only, never touch the network
+gsd --edit-config
+gsd --timezone America/Indiana/Indianapolis
+gsd --timezone auto
+gsd --gradescope-logout
 ```
 
 ## Tests
 
 ```sh
-uv run --with pytest --with beautifulsoup4 python -m pytest tests/ -q
+uv run --extra dev pytest
 ```
+
+## Code layout
+
+The `gsd` command is the `gsd.cli:main` entry point declared in
+`pyproject.toml`; `python -m gsd` runs the same thing. The implementation lives
+in the `gsd/` package:
+
+| Module | Responsibility |
+| --- | --- |
+| `cli.py` | arguments, commands, and plain-text output |
+| `ui.py` | curses rendering and interaction |
+| `models.py` / `events.py` | shared records, grouping, and manual dates |
+| `ical.py` | calendar parsing and recurrence expansion |
+| `sources.py` / `plugins/` | background fetching and source adapters |
+| `config.py` / `state.py` | configuration and persistent checklist state |
+| `timezones.py` / `text.py` | timezone and terminal-text helpers |
 
 ## Scope
 
