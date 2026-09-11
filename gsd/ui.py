@@ -293,7 +293,12 @@ class App:
 
     def item_line(self, it: Item, w: int) -> tuple[str, str, str]:
         box = "[x]" if it.checked else "[ ]"
-        clock = it.time_label()
+        if not it.checked and it.day is not None and it.day < date.today():
+            due = it.local_due
+            assert due is not None
+            clock = f"{due:%m/%d}"
+        else:
+            clock = it.time_label()
         prefix = f"{box} {clock:>5}  "
         source = it.source if w >= 56 else ""
         tail = f"  {source}" if source else ""
