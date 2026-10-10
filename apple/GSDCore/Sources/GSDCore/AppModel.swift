@@ -27,9 +27,11 @@ public final class AppModel {
     @ObservationIgnored var refreshTask: Task<Void, Never>?
     @ObservationIgnored let clock: () -> Date
 
-    public init(store: LocalStore = LocalStore(), deviceName: String, platform: String, clock: @escaping () -> Date = Date.init) {
+    public init(store: LocalStore = LocalStore(), deviceName: String, platform: String,
+                defaults: UserDefaults = .standard, clock: @escaping () -> Date = Date.init) {
         self.store = store
         self.clock = clock
+        self.defaults = defaults
         let doc = store.load(deviceName: deviceName, platform: platform)
         let now = clock()
         self.now = now
@@ -37,6 +39,7 @@ public final class AppModel {
         self.view = Checklist.View(main: [], completed: [], done: [], mainSections: [], completedSections: [], openCount: 0, overdueCount: 0)
         for (id, _) in doc.activeFeeds { feedTexts[id] = store.readCache(id) }
         rebuild()
+        restoreSyncFolder()
     }
 
     public var doc: StateDoc { checklist.doc }
@@ -240,8 +243,25 @@ public final class AppModel {
         let email = doc.gradescopeEmail
         if !email.isEmpty { Keychain.delete(service: Keychain.gradescopeService, account: email) }
         Keychain.cookies = []
+        defaults.removeObject(forKey: AppModel.userAgentKey)
         set(SettingKey.gradescopeEnabled, .bool(false))
         notify("Gradescope credentials removed")
+    }
+
+    static let userAgentKey = "gsd.gradescope.userAgent"
+
+    /// Agent of the browser that made the current session.
+    public var gradescopeUserAgent: String? { defaults.string(forKey: AppModel.userAgentKey) }
+
+    /// Adopt cookies from an in-app browser login (no password involved).
+    public func gradescopeAdoptSession(cookies: [HTTPCookie], userAgent: String?) async throws {
+        let ours = cookies.filter { $0.domain.contains("gradescope.com") }
+        let client = GradescopeClient(cookies: ours, timeout: TimeInterval(max(10, doc.fetchTimeout)), userAgent: userAgent)
+        guard try await client.isLoggedIn() else { throw GradescopeError.auth("that session isn't logged in") }
+        Keychain.cookies = client.cookies
+        if let userAgent { defaults.set(userAgent, forKey: AppModel.userAgentKey) }
+        set(SettingKey.gradescopeEnabled, .bool(true))
+        refresh(only: [StateDoc.gradescopeSource])
     }
 
     public var hasGradescopeSession: Bool { !Keychain.cookies.isEmpty || gradescopePassword != nil }
@@ -295,12 +315,22 @@ public final class AppModel {
         return clock().timeIntervalSince(oldest) > 300
     }
 
+    /// A source some device (maybe a peer, via sync) fetched in the last few minutes.
+    func isFresh(_ id: String) -> Bool {
+        guard let at = doc.sources[id]?.fetchedAt, doc.sources[id]?.error == nil else { return false }
+        return clock().timeIntervalSince(Clock.date(ms: at)) < Sync.freshSeconds
+    }
+
     /// Fetch every enabled source in parallel; each result lands as it comes in.
-    public func refresh(only: Set<String>? = nil) {
-        let feeds = doc.activeFeeds.filter { $0.feed.enabled && (only?.contains($0.id) ?? true) }
+    /// Unless forced (or named in `only`), sources fetched recently are skipped.
+    public func refresh(only: Set<String>? = nil, force: Bool = false) {
+        let force = force || only != nil
+        let feeds = doc.activeFeeds.filter { $0.feed.enabled && (only?.contains($0.id) ?? true) && (force || !isFresh($0.id)) }
         let wantGradescope = doc.gradescopeEnabled && (only?.contains(StateDoc.gradescopeSource) ?? true)
+            && (force || !isFresh(StateDoc.gradescopeSource))
         guard !feeds.isEmpty || wantGradescope else { return }
         let timeout = TimeInterval(doc.fetchTimeout)
+        let userAgent = gradescopeUserAgent
         for (id, _) in feeds { status[id]?.pending = true }
         if wantGradescope { status[StateDoc.gradescopeSource]?.pending = true }
         refreshing = true
@@ -321,7 +351,7 @@ public final class AppModel {
                 if wantGradescope {
                     group.addTask {
                         let cookies = Keychain.cookies
-                        let client = GradescopeClient(cookies: cookies, timeout: max(10, timeout) * 2.5)
+                        let client = GradescopeClient(cookies: cookies, timeout: max(10, timeout) * 2.5, userAgent: userAgent)
                         let result: Result<[Gradescope.Row], Error>
                         do {
                             result = .success(try await client.fetch(options, password: { Keychain.password(email: options.email) }))
@@ -338,9 +368,11 @@ public final class AppModel {
         }
     }
 
+    /// Pull-to-refresh: file checked rows, pick up peers, fetch everything.
     public func refreshAndWait() async {
         sweep()
-        refresh()
+        await syncAndWait()
+        refresh(force: true)
         await refreshTask?.value
     }
 
@@ -354,6 +386,7 @@ public final class AppModel {
             store.writeCache(id, text)
             snap.fetchedAt = Clock.ms(clock())
             snap.error = nil
+            snap.by = doc.device.id
         case .failure(let e):
             snap.error = (e as? FetchError)?.description ?? String(describing: type(of: e))
         }
@@ -372,6 +405,7 @@ public final class AppModel {
             snap.rows = rows
             snap.fetchedAt = Clock.ms(clock())
             snap.error = nil
+            snap.by = doc.device.id
         case .failure(let e):
             snap.error = String(((e as? GradescopeError)?.description ?? String(describing: type(of: e))).prefix(60))
         }
@@ -397,6 +431,105 @@ public final class AppModel {
         saveTask?.cancel()
         saveTask = nil
         do { try store.save(checklist.doc) } catch { notify("could not save: \(error.localizedDescription)") }
+        sync()
+    }
+
+    // MARK: sync
+
+    /// The shared folder, if this device syncs.  Device-local, not synced.
+    public private(set) var syncFolder: SyncFolder?
+    public private(set) var syncPeers: [SyncFolder.Peer] = []
+    public private(set) var syncError: String?
+    public private(set) var lastSync: Date?
+    @ObservationIgnored var syncTask: Task<Void, Never>?
+    @ObservationIgnored let defaults: UserDefaults
+    static let bookmarkKey = "gsd.sync.bookmark", lastSyncKey = "gsd.sync.lastSync"
+
+    func restoreSyncFolder() {
+        if let t = defaults.object(forKey: AppModel.lastSyncKey) as? Double { lastSync = Date(timeIntervalSince1970: t) }
+        guard let data = defaults.data(forKey: AppModel.bookmarkKey), let (folder, stale) = SyncFolder.resolve(bookmark: data) else { return }
+        syncFolder = folder
+        if stale, let fresh = try? folder.bookmark() { defaults.set(fresh, forKey: AppModel.bookmarkKey) }
+    }
+
+    /// Start syncing through `url` (a folder picked by the user).
+    public func connectSync(_ url: URL) throws {
+        let folder = SyncFolder(root: url)
+        defaults.set(try folder.bookmark(), forKey: AppModel.bookmarkKey)
+        syncFolder = folder
+        syncError = nil
+        sync()
+    }
+
+    /// Use a folder directly (no bookmark), e.g. from a command-line tool.
+    public func useSyncFolder(_ url: URL) {
+        syncFolder = SyncFolder(root: url)
+    }
+
+    public func disconnectSync() {
+        defaults.removeObject(forKey: AppModel.bookmarkKey)
+        defaults.removeObject(forKey: AppModel.lastSyncKey)
+        syncFolder = nil
+        syncPeers = []
+        syncError = nil
+        lastSync = nil
+    }
+
+    public var syncStatus: String {
+        guard syncFolder != nil else { return "off" }
+        if let syncError { return syncError }
+        guard let lastSync else { return "syncing…" }
+        let others = syncPeers.count
+        return "synced \(GSDText.relTime(lastSync, now: now)) · \(others) other device\(others == 1 ? "" : "s")"
+    }
+
+    /// Read peers, merge, then publish our own file.  Serialized.
+    public func sync() {
+        guard let folder = syncFolder else { return }
+        let previous = syncTask
+        syncTask = Task { [weak self] in
+            _ = await previous?.value
+            guard let self else { return }
+            let me = self.doc.device.id
+            let peers = await Task.detached { folder.readPeers(excluding: me) }.value
+            self.applyPeers(peers)
+            let store = self.store
+            let outgoing = Sync.publishable(self.doc) { store.readCache($0) }
+            let now = self.clock()
+            let error: String? = await Task.detached { () -> String? in
+                do { try folder.write(outgoing, now: now); return nil } catch { return "can't write: \(error.localizedDescription)" }
+            }.value
+            self.syncError = error
+            if error == nil {
+                self.lastSync = now
+                self.defaults.set(now.timeIntervalSince1970, forKey: AppModel.lastSyncKey)
+            }
+        }
+    }
+
+    public func syncAndWait() async {
+        sync()
+        await syncTask?.value
+    }
+
+    func applyPeers(_ peers: [StateDoc]) {
+        syncPeers = peers.map {
+            SyncFolder.Peer(id: $0.device.id, name: $0.device.name, platform: $0.device.platform, wrote: Clock.date(ms: $0.device.wrote))
+        }.sorted { $0.wrote > $1.wrote }
+        var doc = checklist.doc
+        let result = Sync.merge(&doc, peers: peers, now: clock(), lastSync: lastSync)
+        guard result.changed else { return }
+        checklist.doc = doc
+        for (id, text) in result.adoptedTexts {
+            feedTexts[id] = text
+            parsed[id] = nil
+            store.writeCache(id, text)
+        }
+        for (id, feed) in doc.activeFeeds where feedTexts[id] == nil { feedTexts[id] = store.readCache(id); _ = feed }
+        parsed.removeAll()
+        rebuild()
+        // Persist locally; the debounced flush republishes our merged file.
+        scheduleSave()
     }
 
     // MARK: debugging

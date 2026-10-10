@@ -33,13 +33,15 @@ public final class GradescopeClient: @unchecked Sendable {
     let store: HTTPCookieStorage
     let timeout: TimeInterval
 
-    public init(cookies: [HTTPCookie], timeout: TimeInterval = 25) {
+    /// `userAgent` should match the browser that created the cookies:
+    /// Cloudflare ties its clearance cookie to the agent string.
+    public init(cookies: [HTTPCookie], timeout: TimeInterval = 25, userAgent: String? = nil) {
         let config = URLSessionConfiguration.ephemeral
         config.httpCookieAcceptPolicy = .always
         config.httpShouldSetCookies = true
         config.timeoutIntervalForRequest = timeout
         config.httpAdditionalHeaders = [
-            "User-Agent": GradescopeClient.userAgent,
+            "User-Agent": userAgent ?? GradescopeClient.userAgent,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
         ]
@@ -157,9 +159,15 @@ public final class GradescopeClient: @unchecked Sendable {
             _ = e
         }
         guard !email.isEmpty, let pw = password(), !pw.isEmpty else {
-            throw GradescopeError.auth("not logged in; add your password in Settings")
+            throw GradescopeError.auth("logged out; log in again in Settings")
         }
         try await login(email: email, password: pw)
+    }
+
+    /// True when the cookie session reaches the dashboard.
+    public func isLoggedIn() async throws -> Bool {
+        let (url, html) = try await get("\(Gradescope.base)/")
+        return !GradescopeClient.isLogin(url, html)
     }
 
     func page(_ url: String) async throws -> String {

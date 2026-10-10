@@ -7,14 +7,20 @@ struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var addingFeed = false
     @State private var renaming: (id: String, name: String)?
-    @State private var importing = false
+    @State private var showPicker = false
+    @State private var pickerMode = PickerMode.importFiles
     @State private var importResult: String?
+    @State private var syncError: String?
+
+    /// SwiftUI honours one file importer per view tree, so both uses share it.
+    enum PickerMode { case importFiles, syncFolder }
 
     var body: some View {
         NavigationStack {
             Form {
                 calendars
                 GradescopeSection()
+                SyncSection(choose: { pickerMode = .syncFolder; showPicker = true }, error: syncError)
                 general
                 importSection
                 about
@@ -30,8 +36,21 @@ struct SettingsSheet: View {
                 Button("Save") { if let r = renaming { model.renameFeed(r.id, to: r.name) } }
                 Button("Cancel", role: .cancel) {}
             }
-            .fileImporter(isPresented: $importing, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
-                importResult = handleImport(result)
+            .fileImporter(isPresented: $showPicker,
+                          allowedContentTypes: pickerMode == .syncFolder ? [.folder] : [.item],
+                          allowsMultipleSelection: pickerMode != .syncFolder) { result in
+                if pickerMode == .syncFolder {
+                    switch result {
+                    case .success(let urls):
+                        guard let url = urls.first else { break }
+                        do { try model.connectSync(url); syncError = nil }
+                        catch { syncError = "Can't use that folder: \(error.localizedDescription)" }
+                    case .failure(let e):
+                        syncError = e.localizedDescription
+                    }
+                } else {
+                    importResult = handleImport(result)
+                }
             }
         }
     }
@@ -82,7 +101,7 @@ struct SettingsSheet: View {
 
     private var importSection: some View {
         Section {
-            Button { importing = true } label: { Label("Import from terminal gsd…", systemImage: "square.and.arrow.down") }
+            Button { pickerMode = .importFiles; showPicker = true } label: { Label("Import from terminal gsd…", systemImage: "square.and.arrow.down") }
             if let importResult { Text(importResult).font(.footnote).foregroundStyle(.secondary) }
         } footer: {
             Text("Select config.toml and state.json together (e.g. from iCloud Drive). Optional: Gradescope cookies.txt and assignments.json. Importing twice is harmless.")
@@ -236,11 +255,7 @@ struct AddFeedSheet: View {
 
 struct GradescopeSection: View {
     @Environment(AppModel.self) private var model
-    @State private var email = ""
-    @State private var password = ""
-    @State private var busy = false
-    @State private var result: String?
-    @State private var loaded = false
+    @State private var loggingIn = false
 
     var body: some View {
         Section {
@@ -248,23 +263,11 @@ struct GradescopeSection: View {
                 model.set(SettingKey.gradescopeEnabled, .bool($0))
                 if $0 { model.refresh(only: [StateDoc.gradescopeSource]) }
             }))
-            TextField("Email", text: $email)
-                .textContentType(.username)
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            SecureField(model.gradescopePassword == nil ? "Password" : "Password (saved)", text: $password)
-                .textContentType(.password)
             Button {
-                Task { await login() }
+                loggingIn = true
             } label: {
-                HStack {
-                    Text("Log In")
-                    if busy { Spacer(); ProgressView() }
-                }
+                Label(model.hasGradescopeSession ? "Log In Again…" : "Log In with Gradescope…", systemImage: "person.badge.key")
             }
-            .disabled(busy || email.trimmed.isEmpty || password.isEmpty)
-            if let result { Text(result).font(.footnote).foregroundStyle(.secondary) }
             if model.doc.gradescopeEnabled {
                 Toggle("Include past terms", isOn: Binding(get: { model.doc.gradescopeAllTerms }, set: {
                     model.set(SettingKey.gradescopeAllTerms, .bool($0))
@@ -277,34 +280,43 @@ struct GradescopeSection: View {
                 }
             }
             if model.hasGradescopeSession {
-                Button("Log Out", role: .destructive) {
-                    model.gradescopeLogout()
-                    password = ""
-                    result = nil
-                }
+                Button("Log Out", role: .destructive) { model.gradescopeLogout() }
             }
         } header: {
             Text("Gradescope")
         } footer: {
-            Text("Your password stays in this iPhone's Keychain and is only sent to gradescope.com.")
+            Text("Signs in on Gradescope's own page (school SSO works). The app keeps only the session cookie, in this device's Keychain.")
         }
-        .onAppear {
-            guard !loaded else { return }
-            loaded = true
-            email = model.doc.gradescopeEmail
-        }
+        .sheet(isPresented: $loggingIn) { GradescopeLoginView() }
     }
+}
 
-    @MainActor
-    private func login() async {
-        busy = true
-        defer { busy = false }
-        do {
-            try await model.gradescopeLogin(email: email, password: password)
-            password = ""
-            result = "Logged in. Syncing…"
-        } catch {
-            result = "Login failed: \(error)"
+struct SyncSection: View {
+    @Environment(AppModel.self) private var model
+    let choose: () -> Void
+    let error: String?
+
+    var body: some View {
+        Section {
+            if let folder = model.syncFolder {
+                LabeledContent("Folder", value: folder.root.lastPathComponent)
+                LabeledContent("Status", value: model.syncStatus)
+                ForEach(model.syncPeers, id: \.id) { peer in
+                    LabeledContent(peer.name) {
+                        Text("\(peer.platform) · \(GSDText.relTime(peer.wrote, now: model.now))")
+                    }
+                }
+                Button("Sync Now") { model.sync() }
+                Button("Change Folder…", action: choose)
+                Button("Stop Syncing", role: .destructive) { model.disconnectSync() }
+            } else {
+                Button(action: choose) { Label("Choose Sync Folder…", systemImage: "icloud") }
+            }
+            if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+        } header: {
+            Text("Sync")
+        } footer: {
+            Text("Pick a folder in iCloud Drive (e.g. iCloud Drive/gsd) on each device. Every device writes its own file there and merges the others; checkmarks, manual items, feeds and settings sync. Logins never leave the device.")
         }
     }
 }

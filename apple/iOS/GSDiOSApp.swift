@@ -24,7 +24,11 @@ struct GSDiOSApp: App {
                 model.flush()
             case .active:
                 model.tick()
-                if model.isStale { model.refresh() }
+                Task {
+                    // Peers first: a fetch another device just made is reused.
+                    await model.syncAndWait()
+                    model.refresh()
+                }
             default:
                 break
             }
@@ -42,12 +46,14 @@ struct GSDiOSApp: App {
             fflush(stdout)
             exit(0)
         }
+        await model.syncAndWait()
         model.refresh()
         // Re-render on each minute boundary so "overdue" flips at the due minute.
         while !Task.isCancelled {
             let wait = 60 - Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 60) + 0.05
             try? await Task.sleep(nanoseconds: UInt64(wait * 1e9))
             model.tick()
+            model.sync()
         }
     }
 }

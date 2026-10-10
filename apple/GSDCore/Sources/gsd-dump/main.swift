@@ -16,7 +16,7 @@ func run() async {
 
     // --write DIR keeps the imported native state (state.json + cache/), e.g.
     // to seed a simulator's Application Support/gsd.
-    let keep = opt("--write").map { URL(fileURLWithPath: $0) }
+    let keep = (opt("--store") ?? opt("--write")).map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
     let tmp = keep ?? FileManager.default.temporaryDirectory.appendingPathComponent("gsd-dump-\(UUID().uuidString)")
     let store = LocalStore(directory: tmp)
     defer { if keep == nil { try? FileManager.default.removeItem(at: tmp) } }
@@ -32,8 +32,16 @@ func run() async {
         let text = (try? String(contentsOf: cache.appendingPathComponent(name), encoding: .utf8)) ?? ""
         store.writeCache("ics:" + name.replacingOccurrences(of: ".ics", with: ""), text)
     }
-    let model = AppModel(store: store, deviceName: "dump", platform: "macOS", clock: { fixed ?? Date() })
-    let summary = model.importFiles(files, fetch: false)
+    let model = AppModel(store: store, deviceName: opt("--name") ?? "Mac (gsd-dump)", platform: "macOS",
+                         defaults: UserDefaults(suiteName: "gsd-dump-\(tmp.path.hashValue)")!, clock: { fixed ?? Date() })
+    // --store reuses a persistent identity; only import into a fresh one.
+    let fresh = model.doc.records.isEmpty && model.doc.feeds.isEmpty
+    let summary = (fresh && !args.contains("--no-import")) ? model.importFiles(files, fetch: false) : "existing store"
+    // --sync DIR: act as a sync peer through DIR (e.g. an iCloud Drive folder).
+    if let dir = opt("--sync") {
+        model.useSyncFolder(URL(fileURLWithPath: (dir as NSString).expandingTildeInPath))
+        await model.syncAndWait()
+    }
     if let cookiePath = opt("--gradescope-cookies") {
         // Exercise the native client with an existing session; nothing is stored.
         let cookies = CookieJar.parseNetscape((try? String(contentsOfFile: cookiePath, encoding: .utf8)) ?? "")
@@ -52,6 +60,10 @@ func run() async {
     if args.contains("--fetch") { await model.refreshAndWait() }
     model.tick()
     if keep != nil { model.flush() }
+    if model.syncFolder != nil {
+        await model.syncAndWait()
+        FileHandle.standardError.write(Data("sync: \(model.syncStatus) \(model.syncPeers.map { "\($0.name) [\($0.platform)]" })\n".utf8))
+    }
     FileHandle.standardError.write(Data("\(summary) · zone \(model.zone.identifier)\n\(model.statusLeft) | \(model.statusRight)\n".utf8))
     print(model.dumpRows(), terminator: "")
 }

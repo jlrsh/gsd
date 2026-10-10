@@ -103,6 +103,10 @@ public struct SourceSnapshot: Codable, Hashable, Sendable {
     public var fetchedAt: Int64?
     public var error: String?
     public var rows: [Gradescope.Row]?
+    /// Device that did the fetch (nil = this device, before sync existed).
+    public var by: String?
+    /// Raw ICS text; only present in published sync files.
+    public var text: String?
 }
 
 public struct DeviceInfo: Codable, Hashable, Sendable {
