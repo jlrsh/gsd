@@ -9,6 +9,7 @@ struct ChecklistView: View {
     @State private var page = Page.main
     @State private var editing: EditTarget?
     @State private var confirmDelete: Item?
+    @State private var showSettings = false
 
     enum Page: Hashable { case add, main, completed }
 
@@ -30,6 +31,7 @@ struct ChecklistView: View {
             }
         }
         .sheet(item: $editing) { EditSheet(target: $0) }
+        .sheet(isPresented: $showSettings) { SettingsSheet() }
         .confirmationDialog("Delete “\(confirmDelete?.title ?? "")”?", isPresented: deleteBinding, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 if let key = confirmDelete?.key { model.deleteManual(key) }
@@ -66,10 +68,17 @@ struct ChecklistView: View {
                         .listRowSeparator(.hidden)
                 }
             } header: {
-                Label("Completed (\(model.view.completed.count))", systemImage: "checkmark.circle")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(.green)
-                    .textCase(nil)
+                HStack {
+                    Label("Completed (\(model.view.completed.count))", systemImage: "checkmark.circle")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.green)
+                    Spacer()
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape").font(.title3)
+                    }
+                    .accessibilityLabel("Settings")
+                }
+                .textCase(nil)
             }
             ForEach(model.view.completedSections) { section in
                 Section {

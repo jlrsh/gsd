@@ -33,13 +33,6 @@ struct EditSheet: View {
         return (Clock.midnight(Day(c.year!, c.month!, c.day!), model.zone), true)
     }
 
-    private var preview: String {
-        let (due, allDay) = resolved
-        guard let due else { return "No date" }
-        let label = Rows.dayLabel(Clock.day(due, model.zone), today: Clock.day(model.now, model.zone))
-        return allDay ? label : "\(label) · \(Item(key: "", title: "", due: due, allDay: false).timeLabel(model.zone))"
-    }
-
     private var isNew: Bool { if case .new = target { return true }; return false }
 
     var body: some View {
@@ -61,10 +54,6 @@ struct EditSheet: View {
                     }
                 } header: {
                     Text("Due")
-                } footer: {
-                    Text(preview)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
                 }
             }
             .navigationTitle(isNew ? "Add" : "Edit")
@@ -78,7 +67,8 @@ struct EditSheet: View {
             }
             .onAppear(perform: load)
         }
-        .presentationDetents([.medium, .large])
+        // Half height only: the keyboard would otherwise drag it to full screen.
+        .presentationDetents([.medium])
     }
 
     private func load() {
