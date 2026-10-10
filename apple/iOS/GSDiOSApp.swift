@@ -5,6 +5,7 @@ import UIKit
 @main
 struct GSDiOSApp: App {
     @State private var model = AppModel(deviceName: UIDevice.current.name, platform: "iOS")
+    @State private var lastOpened = Date.distantPast
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -24,14 +25,22 @@ struct GSDiOSApp: App {
                 model.flush()
             case .active:
                 model.tick()
-                Task {
-                    // Peers first: a fetch another device just made is reused.
-                    await model.syncAndWait()
-                    model.refresh()
-                }
+                syncEverything()
             default:
                 break
             }
+        }
+    }
+
+    /// On open: pick up peers through iCloud, then fetch every source, fresh or not.
+    @MainActor
+    private func syncEverything() {
+        // Launch delivers both the first task and the first .active.
+        guard Date().timeIntervalSince(lastOpened) > 5 else { return }
+        lastOpened = Date()
+        Task {
+            await model.syncAndWait()
+            model.refresh(force: true)
         }
     }
 
@@ -46,8 +55,7 @@ struct GSDiOSApp: App {
             fflush(stdout)
             exit(0)
         }
-        await model.syncAndWait()
-        model.refresh()
+        syncEverything()
         // Re-render on each minute boundary so "overdue" flips at the due minute.
         while !Task.isCancelled {
             let wait = 60 - Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 60) + 0.05

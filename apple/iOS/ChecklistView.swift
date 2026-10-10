@@ -1,72 +1,86 @@
 import GSDCore
 import SwiftUI
 
+/// Three pages side by side: swipe right from the list to add an item, left
+/// for Completed.
 struct ChecklistView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
-    @State private var showCompleted = false
+    @State private var page = Page.main
     @State private var editing: EditTarget?
-    @State private var showSettings = false
     @State private var confirmDelete: Item?
 
+    enum Page: Hashable { case add, main, completed }
+
     var body: some View {
-        NavigationStack {
-            List {
-                if !model.view.completed.isEmpty {
-                    Section {
-                        DisclosureGroup(isExpanded: $showCompleted) {
-                            ForEach(model.view.completedSections) { section in
-                                Text(section.title)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                    .listRowSeparator(.hidden)
-                                    .padding(.top, 6)
-                                ForEach(section.items) { row($0) }
-                            }
-                        } label: {
-                            Label("Completed (\(model.view.completed.count))", systemImage: "checkmark.circle")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.green)
-                        }
-                    }
-                }
-                if model.view.mainSections.isEmpty {
-                    Section {
-                        ContentUnavailableView(emptyTitle, systemImage: "checkmark.seal", description: Text(emptyDetail))
-                            .listRowSeparator(.hidden)
-                    }
-                }
-                ForEach(model.view.mainSections) { section in
-                    Section {
-                        ForEach(section.items) { row($0) }
-                    } header: {
-                        SectionHeader(section: section)
-                    }
+        TabView(selection: $page) {
+            AddPage().tag(Page.add)
+            mainList.tag(Page.main)
+            completedList.tag(Page.completed)
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .onChange(of: page) { old, new in
+            if new == .add {
+                // The add page only peeks in; landing on it opens the editor.
+                editing = .new
+                withAnimation { page = .main }
+            } else if old == .completed || new == .completed {
+                // Checked rows file under Completed as you go to look at them.
+                model.sweep()
+            }
+        }
+        .sheet(item: $editing) { EditSheet(target: $0) }
+        .confirmationDialog("Delete “\(confirmDelete?.title ?? "")”?", isPresented: deleteBinding, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let key = confirmDelete?.key { model.deleteManual(key) }
+            }
+        }
+    }
+
+    private var mainList: some View {
+        List {
+            if model.view.mainSections.isEmpty {
+                Section {
+                    ContentUnavailableView(emptyTitle, systemImage: "checkmark.seal", description: Text(emptyDetail))
+                        .listRowSeparator(.hidden)
                 }
             }
-            .listStyle(.plain)
-            .refreshable { await model.refreshAndWait() }
-            .navigationTitle("gsd")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showSettings = true } label: { Image(systemName: "gearshape") }
-                        .accessibilityLabel("Settings")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { editing = .new } label: { Image(systemName: "plus") }
-                        .accessibilityLabel("Add item")
-                }
-            }
-            .safeAreaInset(edge: .bottom) { StatusBar() }
-            .sheet(item: $editing) { EditSheet(target: $0) }
-            .sheet(isPresented: $showSettings) { SettingsSheet() }
-            .confirmationDialog("Delete “\(confirmDelete?.title ?? "")”?", isPresented: deleteBinding, titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    if let key = confirmDelete?.key { model.deleteManual(key) }
+            ForEach(model.view.mainSections) { section in
+                Section {
+                    ForEach(section.items) { row($0) }
+                } header: {
+                    SectionHeader(section: section)
                 }
             }
         }
+        .listStyle(.plain)
+        .refreshable { await model.refreshAndWait() }
+    }
+
+    private var completedList: some View {
+        List {
+            Section {
+                if model.view.completed.isEmpty {
+                    ContentUnavailableView("Nothing completed", systemImage: "checkmark.circle",
+                                           description: Text("Checked items land here."))
+                        .listRowSeparator(.hidden)
+                }
+            } header: {
+                Label("Completed (\(model.view.completed.count))", systemImage: "checkmark.circle")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.green)
+                    .textCase(nil)
+            }
+            ForEach(model.view.completedSections) { section in
+                Section {
+                    ForEach(section.items) { row($0) }
+                } header: {
+                    SectionHeader(section: section)
+                }
+            }
+        }
+        .listStyle(.plain)
+        .refreshable { await model.refreshAndWait() }
     }
 
     private var emptyTitle: String { model.doc.activeFeeds.isEmpty && !model.doc.gradescopeEnabled ? "No sources yet" : "Nothing due" }
@@ -87,18 +101,6 @@ struct ChecklistView: View {
                 open: {
                     if let link = item.link, let url = URL(string: link) { openURL(url) } else { model.toggle(item) }
                 })
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                Button { model.toggle(item) } label: {
-                    Label(model.isDone(item) ? "Uncheck" : "Done", systemImage: model.isDone(item) ? "arrow.uturn.backward" : "checkmark")
-                }
-                .tint(model.isDone(item) ? .orange : .green)
-            }
-            .swipeActions(edge: .trailing) {
-                if item.manual {
-                    Button(role: .destructive) { confirmDelete = item } label: { Label("Delete", systemImage: "trash") }
-                    Button { editing = .edit(item) } label: { Label("Edit", systemImage: "pencil") }.tint(.blue)
-                }
-            }
             .contextMenu {
                 Button { model.toggle(item) } label: {
                     Label(model.isDone(item) ? "Uncheck" : "Check", systemImage: "checkmark.square")
@@ -112,6 +114,18 @@ struct ChecklistView: View {
                     Button(role: .destructive) { confirmDelete = item } label: { Label("Delete", systemImage: "trash") }
                 }
             }
+    }
+}
+
+/// What peeks in while swiping right from the list.
+struct AddPage: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "plus.circle.fill").font(.system(size: 44))
+            Text("New assignment").font(.headline)
+        }
+        .foregroundStyle(Color.accentColor)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -173,23 +187,5 @@ struct RowView: View {
         .onTapGesture(perform: open)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
-    }
-}
-
-struct StatusBar: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        VStack(spacing: 2) {
-            Text(model.statusLeft)
-            if !model.statusRight.isEmpty { Text(model.statusRight) }
-        }
-        .font(.caption.monospacedDigit())
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-        .truncationMode(.middle)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
-        .background(.bar)
     }
 }

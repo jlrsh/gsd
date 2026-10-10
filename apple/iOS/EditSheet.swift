@@ -18,34 +18,23 @@ struct EditSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
-    @State private var when = ""
-    @State private var usePicker = false
-    @State private var pickerDate = Date()
-    @State private var pickerAllDay = false
+    @State private var date = Date()
+    @State private var allDay = true
     @State private var noDate = false
-    @FocusState private var focus: Field?
+    @FocusState private var titleFocused: Bool
 
-    enum Field { case title, when }
-
-    private var parsed: (Date, Bool)? { ParseWhen.parse(when, now: model.now, zone: model.zone) }
-
-    /// (due, allDay) the sheet would save, or nil when unreadable.
-    private var resolved: (Date?, Bool)? {
+    /// (due, allDay) the sheet would save.
+    private var resolved: (Date?, Bool) {
         if noDate { return (nil, true) }
-        if usePicker {
-            if pickerAllDay {
-                var cal = Calendar(identifier: .gregorian)
-                cal.timeZone = model.zone
-                let c = cal.dateComponents([.year, .month, .day], from: pickerDate)
-                return (Clock.midnight(Day(c.year!, c.month!, c.day!), model.zone), true)
-            }
-            return (pickerDate, false)
-        }
-        return parsed.map { ($0.0, $0.1) }
+        guard allDay else { return (date, false) }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = model.zone
+        let c = cal.dateComponents([.year, .month, .day], from: date)
+        return (Clock.midnight(Day(c.year!, c.month!, c.day!), model.zone), true)
     }
 
     private var preview: String {
-        guard let (due, allDay) = resolved else { return "can't read that date — try “fri 5pm” or 2026-09-12" }
+        let (due, allDay) = resolved
         guard let due else { return "No date" }
         let label = Rows.dayLabel(Clock.day(due, model.zone), today: Clock.day(model.now, model.zone))
         return allDay ? label : "\(label) · \(Item(key: "", title: "", due: due, allDay: false).timeLabel(model.zone))"
@@ -58,33 +47,23 @@ struct EditSheet: View {
             Form {
                 Section {
                     TextField("Title", text: $title)
-                        .focused($focus, equals: .title)
-                        .submitLabel(.next)
-                        .onSubmit { focus = .when }
+                        .focused($titleFocused)
+                        .submitLabel(.done)
+                        .onSubmit { titleFocused = false }
                 }
                 Section {
                     Toggle("No date", isOn: $noDate.animation())
                     if !noDate {
-                        Toggle("Pick from calendar", isOn: $usePicker.animation())
-                        if usePicker {
-                            Toggle("All day", isOn: $pickerAllDay)
-                            DatePicker("Due", selection: $pickerDate,
-                                       displayedComponents: pickerAllDay ? [.date] : [.date, .hourAndMinute])
-                                .environment(\.timeZone, model.zone)
-                        } else {
-                            TextField("today, fri 5pm, +3, 9/12 23:59", text: $when)
-                                .focused($focus, equals: .when)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .submitLabel(.done)
-                                .onSubmit(save)
-                        }
+                        Toggle("All day", isOn: $allDay.animation())
+                        DatePicker("Due", selection: $date,
+                                   displayedComponents: allDay ? [.date] : [.date, .hourAndMinute])
+                            .environment(\.timeZone, model.zone)
                     }
                 } header: {
                     Text("Due")
                 } footer: {
                     Text(preview)
-                        .foregroundStyle(resolved == nil ? Color.red : Color.secondary)
+                        .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
             }
@@ -94,7 +73,7 @@ struct EditSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isNew ? "Add" : "Save", action: save)
-                        .disabled(title.trimmed.isEmpty || resolved == nil)
+                        .disabled(title.trimmed.isEmpty)
                 }
             }
             .onAppear(perform: load)
@@ -105,13 +84,12 @@ struct EditSheet: View {
     private func load() {
         switch target {
         case .new:
-            focus = .title
+            titleFocused = true
         case .edit(let item):
             title = item.title
             if let due = item.due {
-                pickerDate = due
-                pickerAllDay = item.allDay
-                usePicker = true
+                date = due
+                allDay = item.allDay
             } else {
                 noDate = true
             }
@@ -119,7 +97,8 @@ struct EditSheet: View {
     }
 
     private func save() {
-        guard !title.trimmed.isEmpty, let (due, allDay) = resolved else { return }
+        guard !title.trimmed.isEmpty else { return }
+        let (due, allDay) = resolved
         switch target {
         case .new: model.addManual(title: title, due: due, allDay: allDay)
         case .edit(let item): model.editManual(item.key, title: title, due: due, allDay: allDay)
