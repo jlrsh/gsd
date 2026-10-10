@@ -158,7 +158,9 @@ public final class AppModel {
         scheduleSave()
     }
 
-    public func addManual(title: String, due: Date?, allDay: Bool) {
+    /// Returns the new item's key.
+    @discardableResult
+    public func addManual(title: String, due: Date?, allDay: Bool) -> String {
         let key = checklist.addManual(title: title, due: due, allDay: allDay, now: clock())
         rebuild()
         scheduleSave()
@@ -167,7 +169,7 @@ public final class AppModel {
         } else {
             notify("added")
         }
-        _ = key
+        return key
     }
 
     public func editManual(_ key: String, title: String, due: Date?, allDay: Bool) {
