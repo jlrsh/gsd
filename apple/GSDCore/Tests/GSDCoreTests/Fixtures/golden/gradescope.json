@@ -1,0 +1,218 @@
+{
+ "courses": [
+  {
+   "file": "dashboard.html",
+   "allTerms": false,
+   "courses": [
+    {
+     "id": "100001",
+     "name": "CS 25100",
+     "full_name": "Data Structures",
+     "url": "https://www.gradescope.com/courses/100001"
+    },
+    {
+     "id": "100002",
+     "name": "Only Full Name",
+     "full_name": "Only Full Name",
+     "url": "https://www.gradescope.com/courses/100002"
+    },
+    {
+     "id": "200003",
+     "name": "TA 300",
+     "full_name": "TA 300",
+     "url": "https://www.gradescope.com/courses/200003"
+    }
+   ]
+  },
+  {
+   "file": "dashboard.html",
+   "allTerms": true,
+   "courses": [
+    {
+     "id": "100001",
+     "name": "CS 25100",
+     "full_name": "Data Structures",
+     "url": "https://www.gradescope.com/courses/100001"
+    },
+    {
+     "id": "100002",
+     "name": "Only Full Name",
+     "full_name": "Only Full Name",
+     "url": "https://www.gradescope.com/courses/100002"
+    },
+    {
+     "id": "90001",
+     "name": "OLD 101",
+     "full_name": "OLD 101",
+     "url": "https://www.gradescope.com/courses/90001"
+    },
+    {
+     "id": "200003",
+     "name": "TA 300",
+     "full_name": "TA 300",
+     "url": "https://www.gradescope.com/courses/200003"
+    },
+    {
+     "id": "80001",
+     "name": "OLD TA",
+     "full_name": "OLD TA",
+     "url": "https://www.gradescope.com/courses/80001"
+    }
+   ]
+  }
+ ],
+ "assignments": [
+  {
+   "file": "course.html",
+   "course": {
+    "id": "100001",
+    "name": "CS 25100",
+    "url": "https://www.gradescope.com/courses/100001"
+   },
+   "rows": [
+    {
+     "key": "a55",
+     "title": "Homework 1",
+     "due_iso": "2026-09-07T23:59:00-04:00",
+     "status": "18.0 / 20.0",
+     "course": "CS 25100",
+     "course_id": "100001",
+     "url": "https://www.gradescope.com/courses/100001/assignments/55"
+    },
+    {
+     "key": "a77",
+     "title": "Project Proposal",
+     "due_iso": "2026-09-20T23:59:00Z",
+     "status": "No Submission",
+     "course": "CS 25100",
+     "course_id": "100001",
+     "url": "https://www.gradescope.com/courses/100001/assignments/77"
+    },
+    {
+     "key": "t:Quiz",
+     "title": "Quiz",
+     "due_iso": "2026-09-10T12:00:00",
+     "status": "Submissions ClosedNo Submission",
+     "course": "CS 25100",
+     "course_id": "100001",
+     "url": "https://www.gradescope.com/courses/100001"
+    },
+    {
+     "key": "t:Quiz#2",
+     "title": "Quiz",
+     "due_iso": "2026-09-11T12:00:30+05:30",
+     "status": "Submitted",
+     "course": "CS 25100",
+     "course_id": "100001",
+     "url": "https://www.gradescope.com/courses/100001"
+    },
+    {
+     "key": "t:Quiz#3",
+     "title": "Quiz",
+     "due_iso": "2026-09-12T12:00:00Z",
+     "status": "Graded 9 / 10",
+     "course": "CS 25100",
+     "course_id": "100001",
+     "url": "https://www.gradescope.com/courses/100001"
+    },
+    {
+     "key": "a88",
+     "title": "Lab 2",
+     "due_iso": "2026-09-13T08:00:00-07:00",
+     "status": "Submissions Closed — 4 / 5",
+     "course": "CS 25100",
+     "course_id": "100001",
+     "url": "https://www.gradescope.com/courses/100001/assignments/88"
+    },
+    {
+     "key": "t:td-only first cell",
+     "title": "td-only first cell",
+     "due_iso": "2026-10-01T10:00:00-04:00",
+     "status": "No Submission",
+     "course": "CS 25100",
+     "course_id": "100001",
+     "url": "https://www.gradescope.com/courses/100001"
+    }
+   ],
+   "items": [
+    {
+     "key": "5aa6f8d9aeb8c2aeef8f",
+     "title": "CS 25100 — Homework 1",
+     "due": "2026-09-08T03:59:00Z",
+     "allDay": false,
+     "link": "https://www.gradescope.com/courses/100001/assignments/55",
+     "source": "Gradescope"
+    },
+    {
+     "key": "b363185ca0b603f162a7",
+     "title": "CS 25100 — Project Proposal",
+     "due": "2026-09-20T23:59:00Z",
+     "allDay": false,
+     "link": "https://www.gradescope.com/courses/100001/assignments/77",
+     "source": "Gradescope"
+    },
+    {
+     "key": "4a0e1fd584285b05673b",
+     "title": "CS 25100 — Quiz",
+     "due": "2026-09-10T16:00:00Z",
+     "allDay": false,
+     "link": "https://www.gradescope.com/courses/100001",
+     "source": "Gradescope"
+    },
+    {
+     "key": "713bc0ae31032a781286",
+     "title": "CS 25100 — Quiz",
+     "due": "2026-09-11T06:30:30Z",
+     "allDay": false,
+     "link": "https://www.gradescope.com/courses/100001",
+     "source": "Gradescope"
+    },
+    {
+     "key": "8311d6a9bd11b3a60130",
+     "title": "CS 25100 — Quiz",
+     "due": "2026-09-12T12:00:00Z",
+     "allDay": false,
+     "link": "https://www.gradescope.com/courses/100001",
+     "source": "Gradescope"
+    },
+    {
+     "key": "5de96fec06c469364229",
+     "title": "CS 25100 — Lab 2",
+     "due": "2026-09-13T15:00:00Z",
+     "allDay": false,
+     "link": "https://www.gradescope.com/courses/100001/assignments/88",
+     "source": "Gradescope"
+    },
+    {
+     "key": "47e358b08b1bf31b4d2b",
+     "title": "CS 25100 — td-only first cell",
+     "due": "2026-10-01T14:00:00Z",
+     "allDay": false,
+     "link": "https://www.gradescope.com/courses/100001",
+     "source": "Gradescope"
+    }
+   ],
+   "autoComplete": [
+    "5de96fec06c469364229"
+   ],
+   "submitted": [
+    true,
+    false,
+    false,
+    true,
+    true,
+    true,
+    false
+   ],
+   "closed": [
+    false,
+    false,
+    true,
+    false,
+    false,
+    true,
+    false
+   ]
+  }
+ ]
+}

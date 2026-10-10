@@ -1,0 +1,30 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Instructure//Canvas//EN
+BEGIN:VEVENT
+DTSTART:20260903T035900Z
+DTEND:20260903T035900Z
+UID:event-assignment-9182734@purdue.instructure.com
+SUMMARY:HW3: Rigid Body Dynamics [ME 597]
+DESCRIPTION:Submit via Gradescope. Details: https://purdue.instructure.com/co
+ urses/1234/assignments/9182734?module_item_id=55&amp;amp;x=1
+LOCATION:
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;VALUE=DATE:20260905
+UID:event-assignment-9182999@purdue.instructure.com
+SUMMARY:Reading\, ch. 4-5 [CS 381]
+DESCRIPTION:No link here
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:REMINDER https://evil.example.com/alarm
+TRIGGER:-PT15M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260904T180000Z
+UID:cancelled-1@purdue.instructure.com
+SUMMARY:Cancelled thing
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR

@@ -1,0 +1,37 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//D2L//Brightspace//EN
+BEGIN:VTIMEZONE
+TZID:America/Indiana/Indianapolis
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=America/Indiana/Indianapolis:20260901T103000
+DTEND;TZID=America/Indiana/Indianapolis:20260901T112000
+UID:lecture-me597@purdue.brightspace.com
+SUMMARY:ME 597 Lecture
+RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20261211T045959Z
+EXDATE;TZID=America/Indiana/Indianapolis:20260907T103000
+URL:https://purdue.brightspace.com/d2l/le/content/1234
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID="America/Indiana/Indianapolis":20260909T103000
+UID:lecture-me597@purdue.brightspace.com
+RECURRENCE-ID;TZID=America/Indiana/Indianapolis:20260909T103000
+SUMMARY:ME 597 Lecture (moved to Friday)
+END:VEVENT
+BEGIN:VTODO
+UID:todo-nodate@purdue.brightspace.com
+SUMMARY:Pick a project topic
+END:VTODO
+BEGIN:VTODO
+UID:todo-due@purdue.brightspace.com
+SUMMARY:Lab notebook check
+DUE;TZID=Eastern Standard Time:20260910T235900
+END:VTODO
+END:VCALENDAR

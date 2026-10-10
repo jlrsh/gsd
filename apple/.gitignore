@@ -1,0 +1,8 @@
+GSD.xcodeproj/
+Local.xcconfig
+build/
+DerivedData/
+GSDCore/.build/
+GSDCore/.swiftpm/
+GSDCore/Tests/GSDCoreTests/Fixtures/private/
+.DS_Store

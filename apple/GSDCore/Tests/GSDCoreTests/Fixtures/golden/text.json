@@ -1,0 +1,247 @@
+[
+ {
+  "input": "plain",
+  "clean": "plain",
+  "deep": "plain",
+  "unescape": "plain",
+  "repr": "'plain'"
+ },
+ {
+  "input": "a\u0000b\tc\nd",
+  "clean": "ab c d",
+  "deep": "a\u0000b\tc\nd",
+  "unescape": "a\u0000b\tc\nd",
+  "repr": "'a\\x00b\\tc\\nd'"
+ },
+ {
+  "input": "  lots   of space  here ",
+  "clean": "lots of space here",
+  "deep": "  lots   of space  here ",
+  "unescape": "  lots   of space  here ",
+  "repr": "'  lots   of\\xa0space \\u2003here '"
+ },
+ {
+  "input": "&amp;&lt;&gt;&quot;&#39;",
+  "clean": "&<>\"'",
+  "deep": "&<>\"'",
+  "unescape": "&amp;&lt;&gt;&quot;&#39;",
+  "repr": "'&amp;&lt;&gt;&quot;&#39;'"
+ },
+ {
+  "input": "&amp",
+  "clean": "&",
+  "deep": "&",
+  "unescape": "&amp",
+  "repr": "'&amp'"
+ },
+ {
+  "input": "&ampfoo",
+  "clean": "&foo",
+  "deep": "&foo",
+  "unescape": "&ampfoo",
+  "repr": "'&ampfoo'"
+ },
+ {
+  "input": "&notit;",
+  "clean": "¬it;",
+  "deep": "¬it;",
+  "unescape": "&notit;",
+  "repr": "'&notit;'"
+ },
+ {
+  "input": "&notin;",
+  "clean": "∉",
+  "deep": "∉",
+  "unescape": "&notin;",
+  "repr": "'&notin;'"
+ },
+ {
+  "input": "&#x41;&#65;&#0;&#x80;&#150;&#xD800;&#1114112;",
+  "clean": "AA�€–��",
+  "deep": "AA�€–��",
+  "unescape": "&#x41;&#65;&#0;&#x80;&#150;&#xD800;&#1114112;",
+  "repr": "'&#x41;&#65;&#0;&#x80;&#150;&#xD800;&#1114112;'"
+ },
+ {
+  "input": "&#12abc",
+  "clean": "abc",
+  "deep": "\fabc",
+  "unescape": "&#12abc",
+  "repr": "'&#12abc'"
+ },
+ {
+  "input": "&#x;",
+  "clean": "&#x;",
+  "deep": "&#x;",
+  "unescape": "&#x;",
+  "repr": "'&#x;'"
+ },
+ {
+  "input": "&#;",
+  "clean": "&#;",
+  "deep": "&#;",
+  "unescape": "&#;",
+  "repr": "'&#;'"
+ },
+ {
+  "input": "&;",
+  "clean": "&;",
+  "deep": "&;",
+  "unescape": "&;",
+  "repr": "'&;'"
+ },
+ {
+  "input": "& alone",
+  "clean": "& alone",
+  "deep": "& alone",
+  "unescape": "& alone",
+  "repr": "'& alone'"
+ },
+ {
+  "input": "caf&eacute; &Eacute;cole",
+  "clean": "café École",
+  "deep": "café École",
+  "unescape": "caf&eacute; &Eacute;cole",
+  "repr": "'caf&eacute; &Eacute;cole'"
+ },
+ {
+  "input": "&AMP;",
+  "clean": "&",
+  "deep": "&",
+  "unescape": "&AMP;",
+  "repr": "'&AMP;'"
+ },
+ {
+  "input": "&AElig",
+  "clean": "Æ",
+  "deep": "Æ",
+  "unescape": "&AElig",
+  "repr": "'&AElig'"
+ },
+ {
+  "input": "&unknownentity;",
+  "clean": "&unknownentity;",
+  "deep": "&unknownentity;",
+  "unescape": "&unknownentity;",
+  "repr": "'&unknownentity;'"
+ },
+ {
+  "input": "&lt3",
+  "clean": "<3",
+  "deep": "<3",
+  "unescape": "&lt3",
+  "repr": "'&lt3'"
+ },
+ {
+  "input": "x &amp;amp; y",
+  "clean": "x &amp; y",
+  "deep": "x & y",
+  "unescape": "x &amp;amp; y",
+  "repr": "'x &amp;amp; y'"
+ },
+ {
+  "input": "\r\ncarriage",
+  "clean": "carriage",
+  "deep": "\r\ncarriage",
+  "unescape": "\r\ncarriage",
+  "repr": "'\\r\\ncarriage'"
+ },
+ {
+  "input": "del\u001funit",
+  "clean": "delunit",
+  "deep": "del\u001funit",
+  "unescape": "del\u001funit",
+  "repr": "'\\x7fdel\\x1funit'"
+ },
+ {
+  "input": "zero​width",
+  "clean": "zero​width",
+  "deep": "zero​width",
+  "unescape": "zero​width",
+  "repr": "'zero\\u200bwidth'"
+ },
+ {
+  "input": "&nbsp;x&nbsp;",
+  "clean": "x",
+  "deep": " x ",
+  "unescape": "&nbsp;x&nbsp;",
+  "repr": "'&nbsp;x&nbsp;'"
+ },
+ {
+  "input": "emoji 😀 &#128512;",
+  "clean": "emoji 😀 😀",
+  "deep": "emoji 😀 😀",
+  "unescape": "emoji 😀 &#128512;",
+  "repr": "'emoji 😀 &#128512;'"
+ },
+ {
+  "input": "&#xFFFE;&#x1FFFF;&#11;",
+  "clean": "",
+  "deep": "",
+  "unescape": "&#xFFFE;&#x1FFFF;&#11;",
+  "repr": "'&#xFFFE;&#x1FFFF;&#11;'"
+ },
+ {
+  "input": "a&amp;b&amp;c",
+  "clean": "a&b&c",
+  "deep": "a&b&c",
+  "unescape": "a&amp;b&amp;c",
+  "repr": "'a&amp;b&amp;c'"
+ },
+ {
+  "input": "tab\tin\ttitle",
+  "clean": "tab in title",
+  "deep": "tab\tin\ttitle",
+  "unescape": "tab\tin\ttitle",
+  "repr": "'tab\\tin\\ttitle'"
+ },
+ {
+  "input": "&ThickSpace;",
+  "clean": "",
+  "deep": "  ",
+  "unescape": "&ThickSpace;",
+  "repr": "'&ThickSpace;'"
+ },
+ {
+  "input": "&NotEqualTilde;",
+  "clean": "≂̸",
+  "deep": "≂̸",
+  "unescape": "&NotEqualTilde;",
+  "repr": "'&NotEqualTilde;'"
+ },
+ {
+  "input": "&fjlig;",
+  "clean": "fj",
+  "deep": "fj",
+  "unescape": "&fjlig;",
+  "repr": "'&fjlig;'"
+ },
+ {
+  "input": "Reading\\, ch. 4-5",
+  "clean": "Reading\\, ch. 4-5",
+  "deep": "Reading\\, ch. 4-5",
+  "unescape": "Reading, ch. 4-5",
+  "repr": "'Reading\\\\, ch. 4-5'"
+ },
+ {
+  "input": "a\\nb",
+  "clean": "a\\nb",
+  "deep": "a\\nb",
+  "unescape": "a\nb",
+  "repr": "'a\\\\nb'"
+ },
+ {
+  "input": "a\\\\nb",
+  "clean": "a\\\\nb",
+  "deep": "a\\\\nb",
+  "unescape": "a\\nb",
+  "repr": "'a\\\\\\\\nb'"
+ },
+ {
+  "input": "x\\;y\\Nz\\q",
+  "clean": "x\\;y\\Nz\\q",
+  "deep": "x\\;y\\Nz\\q",
+  "unescape": "x;y\nzq",
+  "repr": "'x\\\\;y\\\\Nz\\\\q'"
+ }
+]

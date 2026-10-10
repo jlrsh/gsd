@@ -1,0 +1,4 @@
+// Shared build settings.  Personal values (team, bundle id) go in
+// Local.xcconfig, which is gitignored; copy Local.xcconfig.example.
+GSD_BUNDLE_ID = com.jlrsh.gsd
+#include? "Local.xcconfig"
