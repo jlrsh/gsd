@@ -388,8 +388,17 @@ def parse_assignments(doc, course: dict) -> list[dict]:
     return out
 
 
-def _submitted(status: str) -> bool:
+def is_submitted(status: str) -> bool:
     return bool(re.search(r"submitted|graded|\d+\s*/\s*\d+", status or "", re.I))
+
+
+def is_closed(status: str) -> bool:
+    """True when the status text says the submission window is shut.
+
+    Distinct from `is_submitted`: this only says nothing more can be turned
+    in, not whether the student ever turned anything in.
+    """
+    return bool(re.search(r"closed|no longer accept", status or "", re.I))
 
 
 def fetch(
@@ -430,7 +439,7 @@ def fetch(
         if due.tzinfo is None:
             due = due.replace(tzinfo=timezone.utc)
         if floor <= due <= ceiling and not (
-            config.get("skip_submitted") and _submitted(item["status"])
+            config.get("skip_submitted") and is_submitted(item["status"])
         ):
             kept.append(item)
     return sorted(kept, key=lambda item: item["due_iso"])

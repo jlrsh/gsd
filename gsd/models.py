@@ -44,6 +44,21 @@ class Item:
         due = self.local_due
         return due.date() if due else None
 
+    def is_overdue(self, now: datetime | None = None) -> bool:
+        """True once the due moment has passed.
+
+        All-day items have no real time (due is midnight local), so they only
+        go overdue once their whole day has elapsed; timed items go overdue
+        the instant their due time passes, not just at day rollover.
+        """
+        due = self.local_due
+        if due is None:
+            return False
+        now = now.astimezone(timezones.LOCAL) if now else datetime.now(timezones.LOCAL)
+        if self.all_day:
+            return due.date() < now.date()
+        return due < now
+
     @property
     def sort_key(self) -> tuple:
         due = self.local_due

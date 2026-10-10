@@ -59,8 +59,9 @@ def build_rows(completed: list[Item], main: list[Item]) -> tuple[list[Row], int]
 
     main_start = len(rows)
 
-    overdue = [it for it in main if it.day is not None and it.day < today]
-    upcoming = [it for it in main if it.day is not None and it.day >= today]
+    now = datetime.now(timezones.LOCAL)
+    overdue = [it for it in main if it.day is not None and it.is_overdue(now)]
+    upcoming = [it for it in main if it.day is not None and not it.is_overdue(now)]
     undated = [it for it in main if it.day is None]
 
     blocks: list[tuple[str, list[Item], str]] = []

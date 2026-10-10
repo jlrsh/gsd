@@ -65,6 +65,64 @@ def test_direct_adapter_has_stable_identity_and_no_ics():
     assert first.source == "Gradescope"
 
 
+def test_is_closed_and_is_submitted_read_the_status_text():
+    assert gradescope.is_closed("Submissions Closed")
+    assert gradescope.is_closed("No longer accepting submissions")
+    assert not gradescope.is_closed("No Submission")
+    assert gradescope.is_submitted("Submitted")
+    assert gradescope.is_submitted("87 / 100")
+    assert not gradescope.is_submitted("No Submission")
+
+
+def test_auto_complete_keys_only_for_closed_assignments_with_a_submission():
+    closed_and_started = {
+        "course_id": "1",
+        "key": "a1",
+        "status": "Submissions Closed — 90 / 100",
+    }
+    closed_but_untouched = {
+        "course_id": "1",
+        "key": "a2",
+        "status": "Submissions Closed — No Submission",
+    }
+    still_open = {"course_id": "1", "key": "a3", "status": "No Submission"}
+    keys = gsd.gradescope_auto_complete_keys(
+        [closed_and_started, closed_but_untouched, still_open]
+    )
+    assert keys == {gsd.sources._gradescope_key(closed_and_started)}
+
+
+def test_closed_and_submitted_assignment_is_auto_completed(tmp_path, monkeypatch):
+    monkeypatch.setattr(gsd.state, "STATE_PATH", tmp_path / "state.json")
+
+    class Screen:
+        pass
+
+    settings = dict(gsd.DEFAULTS)
+    settings["gradescope"] = {"enabled": True, "email": "student@example.edu"}
+    app = gsd.App(
+        Screen(), [], settings, {"completed": {}, "checked": [], "manual": []}
+    )
+    row = {
+        "course_id": "1",
+        "key": "a1",
+        "course": "CS 101",
+        "title": "HW1",
+        "due_iso": "2026-09-07T23:59:00-04:00",
+        "url": "https://www.gradescope.com/x",
+        "status": "Submissions Closed — 90 / 100",
+    }
+    app.feed_items[gsd.GRADESCOPE_SOURCE] = gsd.gradescope_items([row])
+    app.auto_complete_gradescope([row])
+    key = gsd.sources._gradescope_key(row)
+    assert key in app.completed and key in app.checked
+    # A missed assignment (never touched) is left for the student to see.
+    missed = dict(row, key="a2", status="Submissions Closed — No Submission")
+    app.feed_items[gsd.GRADESCOPE_SOURCE] = gsd.gradescope_items([row, missed])
+    app.auto_complete_gradescope([row, missed])
+    assert gsd.sources._gradescope_key(missed) not in app.completed
+
+
 def test_plugin_cache_is_private_json(tmp_path):
     path = tmp_path / "plugin" / "assignments.json"
     rows = [{"title": "Homework 1"}]

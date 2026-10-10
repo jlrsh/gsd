@@ -54,6 +54,11 @@ def fetch_text(url: str, timeout: int) -> str:
 GRADESCOPE_SOURCE = "plugin:gradescope"
 
 
+def _gradescope_key(row: dict) -> str:
+    identity = f"{row.get('course_id', '')}:{row.get('key', row.get('title', ''))}"
+    return hashlib.sha1(f"gradescope\x00{identity}".encode()).hexdigest()[:20]
+
+
 def gradescope_items(rows: list[dict]) -> list[Item]:
     """Adapt scraped records directly into gsd's model (there is no ICS hop)."""
     items = []
@@ -64,14 +69,12 @@ def gradescope_items(rows: list[dict]) -> list[Item]:
             continue
         if due.tzinfo is None:
             due = due.replace(tzinfo=timezones.LOCAL)
-        identity = f"{row.get('course_id', '')}:{row.get('key', row.get('title', ''))}"
-        key = hashlib.sha1(f"gradescope\x00{identity}".encode()).hexdigest()[:20]
         title = clean_text(
             f"{row.get('course', '')} — {row.get('title', '(untitled)')}"
         )
         items.append(
             Item(
-                key=key,
+                key=_gradescope_key(row),
                 title=title,
                 due=due,
                 all_day=False,
@@ -80,6 +83,22 @@ def gradescope_items(rows: list[dict]) -> list[Item]:
             )
         )
     return items
+
+
+def gradescope_auto_complete_keys(rows: list[dict]) -> set[str]:
+    """Keys of assignments whose submission window has closed with something
+    turned in — there's nothing left to do, so gsd can retire them on its own.
+
+    An assignment that closed with no submission at all is left alone: the
+    student missed it outright, and that should stay visible rather than
+    silently vanish into Completed.
+    """
+    return {
+        _gradescope_key(row)
+        for row in rows
+        if gradescope.is_closed(str(row.get("status") or ""))
+        and gradescope.is_submitted(str(row.get("status") or ""))
+    }
 
 
 def start_fetches(

@@ -8,7 +8,7 @@ import threading
 import time
 import uuid
 import webbrowser
-from datetime import date, datetime
+from datetime import datetime
 
 from . import timezones
 from .config import configure_timezone, edit_config, set_source_enabled
@@ -17,7 +17,13 @@ from .ical import clean_text, items_from_ics
 from .models import Feed, FeedStatus, Item, Row
 from .paths import CONFIG_PATH, GRADESCOPE_CACHE, STATE_PATH
 from .plugins import gradescope
-from .sources import GRADESCOPE_SOURCE, gradescope_items, read_cache, start_fetches
+from .sources import (
+    GRADESCOPE_SOURCE,
+    gradescope_auto_complete_keys,
+    gradescope_items,
+    read_cache,
+    start_fetches,
+)
 from .state import prune_completed, save_state
 from .text import dtrim, dwidth, rel_time
 
@@ -91,6 +97,7 @@ class App:
             self.status.setdefault(
                 GRADESCOPE_SOURCE, FeedStatus(name="Gradescope")
             ).cached_at = mtime
+            self.auto_complete_gradescope(rows)
 
     def refresh(self) -> None:
         for st in self.status.values():
@@ -122,6 +129,7 @@ class App:
                 try:
                     if feed == GRADESCOPE_SOURCE:
                         self.feed_items[source_id] = gradescope_items(text)
+                        self.auto_complete_gradescope(text)
                     else:
                         self.feed_items[source_id] = items_from_ics(
                             text, feed, self.settings["horizon_days"]
@@ -145,6 +153,34 @@ class App:
         for it in self.manual:
             live[it.key] = it
         return live
+
+    def auto_complete_gradescope(self, rows: list[dict]) -> None:
+        """Retire closed Gradescope assignments that already have a submission.
+
+        Runs every time fresh rows land (cache load or fetch).  A key already
+        in `self.completed` is skipped, so it won't fight an uncheck made
+        earlier in the same session.
+        """
+        keys = gradescope_auto_complete_keys(rows)
+        keys -= set(self.completed)
+        if not keys:
+            return
+        live = self.live_items()
+        now = datetime.now(timezones.LOCAL).isoformat(timespec="seconds")
+        changed = False
+        for key in keys:
+            item = live.get(key)
+            if item is None:
+                continue
+            snap = item.to_json()
+            snap["completed_at"] = now
+            self.completed[key] = snap
+            self.checked.add(key)
+            changed = True
+        if changed:
+            self.state["completed"] = self.completed
+            self.state["checked"] = sorted(self.checked)
+            save_state(self.state)
 
     def rebuild(self, keep_key: str | None = None, keep_screen_row: int = 0) -> None:
         live = self.live_items()
@@ -293,7 +329,7 @@ class App:
 
     def item_line(self, it: Item, w: int) -> tuple[str, str, str]:
         box = "[x]" if it.checked else "[ ]"
-        if not it.checked and it.day is not None and it.day < date.today():
+        if not it.checked and it.day is not None and it.is_overdue():
             due = it.local_due
             assert due is not None
             clock = f"{due:%m/%d}"
@@ -346,13 +382,12 @@ class App:
     def status_line(self) -> tuple[str, str]:
         if self.message and time.time() < self.message_until:
             return self.message, self.gradescope_status()
-        today = date.today()
         main_open = [
             r.item
             for r in self.rows[self.main_start :]
             if r.kind == "item" and r.item and not r.item.checked
         ]
-        overdue = sum(1 for it in main_open if it.day is not None and it.day < today)
+        overdue = sum(1 for it in main_open if it.day is not None and it.is_overdue())
         bits = [f"{len(main_open)} open"]
         if overdue:
             bits.append(f"{overdue} overdue")

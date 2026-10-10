@@ -88,6 +88,24 @@ def test_overdue_items_group_above_today():
     assert headers[1].startswith("Today")
 
 
+# -- overdue timing ----------------------------------------------------------
+
+
+def test_all_day_item_overdue_only_after_its_day_ends():
+    day = date(2026, 9, 21)
+    due = datetime.combine(day, datetime.min.time(), gsd.LOCAL)
+    item = gsd.Item(key="a", title="a", due=due, all_day=True)
+    assert not item.is_overdue(due.replace(hour=23, minute=59))
+    assert item.is_overdue(due + timedelta(days=1))
+
+
+def test_timed_item_overdue_the_instant_its_due_time_passes():
+    due = datetime(2026, 9, 21, 11, 30, tzinfo=gsd.LOCAL)
+    item = gsd.Item(key="t", title="t", due=due, all_day=False)
+    assert not item.is_overdue(due - timedelta(minutes=1))
+    assert item.is_overdue(due + timedelta(hours=4))
+
+
 def test_undated_items_sort_into_their_own_group_last():
     item = gsd.Item(key="u", title="someday", due=None, all_day=True)
     rows, main_start = gsd.build_rows([], [item, _item("now", date.today())])
