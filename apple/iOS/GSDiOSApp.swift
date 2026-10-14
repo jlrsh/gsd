@@ -16,6 +16,10 @@ struct GSDiOSApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
                     model.tick()
                 }
+                // Keep the Home and Lock Screen widgets on the current list.
+                .onChange(of: WidgetSnapshot(model), initial: true) { _, snapshot in
+                    WidgetSnapshot.publish(snapshot)
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {

@@ -17,9 +17,16 @@ targets:
     platform: iOS
     sources:
       - path: iOS
+      - path: Shared
     dependencies:
       - package: GSDCore
         product: GSDCore
+      - target: GSDWidgets
+    entitlements:
+      path: iOS/GSD.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - $(GSD_APP_GROUP)
     settings:
       base:
         PRODUCT_NAME: GSD
@@ -33,6 +40,29 @@ targets:
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         ENABLE_PREVIEWS: YES
+  GSDWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Shared
+    entitlements:
+      path: Widgets/GSDWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - $(GSD_APP_GROUP)
+    settings:
+      base:
+        PRODUCT_NAME: GSDWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: $(GSD_BUNDLE_ID).widgets
+        INFOPLIST_FILE: Widgets/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SKIP_INSTALL: YES
   GSDMac:
     type: application
     platform: macOS

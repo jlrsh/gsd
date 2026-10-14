@@ -2,3 +2,5 @@
 // Local.xcconfig, which is gitignored; copy Local.xcconfig.example.
 GSD_BUNDLE_ID = com.jlrsh.gsd
 #include? "Local.xcconfig"
+// Shared container the app writes the widget snapshot into.
+GSD_APP_GROUP = group.$(GSD_BUNDLE_ID)
