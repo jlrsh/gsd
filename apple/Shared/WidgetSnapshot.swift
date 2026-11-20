@@ -22,6 +22,8 @@ struct WidgetSnapshot: Codable, Equatable {
     static let todayKind = "GSDTodayWidget"
     static let summaryKind = "GSDSummaryWidget"
     static let fileName = "widget.json"
+    /// WatchConnectivity payload key for the encoded snapshot.
+    static let watchKey = "snapshot"
 
     var timeZone: TimeZone { TimeZone(identifier: zone) ?? .current }
 
@@ -66,5 +68,20 @@ struct WidgetSnapshot: Codable, Equatable {
         cal.timeZone = zone
         let c = cal.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
+    }
+
+    /// When the timeline should re-render: now, each upcoming due time, and
+    /// the next two midnights.
+    static func moments(_ snapshot: WidgetSnapshot?) -> [Date] {
+        let now = Date()
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = snapshot?.timeZone ?? .current
+        let midnight = cal.startOfDay(for: now)
+        let horizon = cal.date(byAdding: .day, value: 2, to: midnight)!
+        var moments: Set<Date> = [now, cal.date(byAdding: .day, value: 1, to: midnight)!, horizon]
+        for t in snapshot?.tasks ?? [] where !t.allDay {
+            if let due = t.due, due > now, due < horizon { moments.insert(due) }
+        }
+        return Array(moments.sorted().prefix(60))
     }
 }

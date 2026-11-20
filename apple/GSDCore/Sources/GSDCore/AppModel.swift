@@ -378,6 +378,19 @@ public final class AppModel {
         await refreshTask?.value
     }
 
+    /// Background app refresh: pick up peers, fetch every source, then save
+    /// and republish so peers see what this device fetched.  Unlike
+    /// pull-to-refresh it doesn't sweep, so rows stay where the user left them.
+    public func backgroundRefresh() async {
+        await syncAndWait()
+        refresh(force: true)
+        await refreshTask?.value
+        now = clock()
+        rebuild()
+        flush()
+        await syncTask?.value
+    }
+
     func landFeed(_ id: String, _ result: Result<String, Error>) {
         guard doc.feeds[id]?.deleted == false else { return }
         var snap = doc.sources[id] ?? SourceSnapshot()

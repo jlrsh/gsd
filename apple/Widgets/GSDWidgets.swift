@@ -29,37 +29,9 @@ struct Provider: TimelineProvider {
     /// the next two midnights.
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
         let snapshot = WidgetSnapshot.load()
-        let entries = Provider.moments(snapshot).map { Entry(date: $0, snapshot: snapshot) }
+        let entries = WidgetSnapshot.moments(snapshot).map { Entry(date: $0, snapshot: snapshot) }
         completion(Timeline(entries: entries, policy: .atEnd))
     }
-
-    static func moments(_ snapshot: WidgetSnapshot?) -> [Date] {
-        let now = Date()
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = snapshot?.timeZone ?? .current
-        let midnight = cal.startOfDay(for: now)
-        let horizon = cal.date(byAdding: .day, value: 2, to: midnight)!
-        var moments: Set<Date> = [now, cal.date(byAdding: .day, value: 1, to: midnight)!, horizon]
-        for t in snapshot?.tasks ?? [] where !t.allDay {
-            if let due = t.due, due > now, due < horizon { moments.insert(due) }
-        }
-        return Array(moments.sorted().prefix(60))
-    }
-}
-
-extension WidgetSnapshot {
-    static let sample = WidgetSnapshot(tasks: [
-        Task(title: "CS 381 — HW3", due: Date().addingTimeInterval(3600), allDay: false,
-             day: WidgetSnapshot.iso(Date(), .current), source: "Canvas"),
-        Task(title: "ME 597 — Lab 1", due: Date().addingTimeInterval(7200), allDay: false,
-             day: WidgetSnapshot.iso(Date(), .current), source: "Brightspace"),
-        Task(title: "MA 266 — Quiz 2", due: Date().addingTimeInterval(86400), allDay: true,
-             day: WidgetSnapshot.iso(Date().addingTimeInterval(86400), .current), source: "Gradescope"),
-        Task(title: "PHYS 241 — Problem Set 4", due: Date().addingTimeInterval(-86400), allDay: false,
-             day: WidgetSnapshot.iso(Date().addingTimeInterval(-86400), .current), source: "Canvas"),
-    ].sorted { ($0.due ?? .distantFuture) < ($1.due ?? .distantFuture) },
-    zone: TimeZone.current.identifier,
-    doneDays: [WidgetSnapshot.iso(Date(), .current)])
 }
 
 // MARK: Home Screen: the list
